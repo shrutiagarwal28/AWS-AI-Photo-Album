@@ -1,0 +1,10 @@
+#record {
+    border-radius: 50%;
+    max-width: 50%;
+    max-height: 15%;
+    background-color: red;
+    border-width:medium;
+    border-color: black;
+    padding: 20px;
+    margin: 4px 2px;
+}
