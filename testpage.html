@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="jquery-3.4.1.min.js"></script>
+    <script type="text/javascript" src="sdk/lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="sdk/lib/CryptoJS/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="sdk/lib/CryptoJS/rollups/sha256.js"></script>
+    <script type="text/javascript" src="sdk/lib/CryptoJS/components/hmac.js"></script>
+    <script type="text/javascript" src="sdk/lib/CryptoJS/components/enc-base64.js"></script>
+    <script type="text/javascript" src="sdk/lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="sdk/lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="sdk/lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="sdk/lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="sdk/lib/apiGatewayCore/utils.js"></script>
+    <script type="text/javascript" src="sdk/apigClient.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.583.0.min.js"></script>
+</head>
+<body>
+<div class="main">
+    <div>
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs nav-justified" role="tablist">
+            <li role="presentation" class="active"><a href="#login" aria-controls="login" role="tab" data-toggle="tab"><h2>Photo Album</h2></a></li>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="login">
+                <div class="form-group" >
+                    <label for="file">select file</label>
+                    <input type="file" name="userName" class="form-control" id="file">
+                </div>
+                <button id="upload-file" onclick="uploadFile()" type="button" class="btn btn-default">upload</button>
+                <div class="form-group">
+                    <label for="search">search</label>
+                    <input type="text" name="result" class="form-control" id="search" placeholder="What do you want to search beta?">
+                </div>
+                <button id="record"></button>
+                <button id="submit-search" onclick="submitSearch()" type="button" class="btn btn-default">search</button>
+            </div>
+        </div>
+        <p id="image"></p>
+    </div>
+</div>
+<p>
+    <audio id=recordedAudio></audio>
+</p>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script type="text/javascript">
+
+
+    var SpeechRecognition = window.speechRecognition || window.webkitSpeechRecognition;
+
+    const recognition = new SpeechRecognition();
+    recognition.onresult = (event) => {
+        console.log('record is:')
+        const speechToText = event.results[0][0].transcript;
+        console.log(speechToText);
+        $('#search').val(speechToText);
+    }
+
+    /*AWS.config.update({
+        region: bucketRegion,
+        accessKeyId: "AKIAZOHQJQ5GG3ROR4PP",
+        secretAccessKey: "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"
+    });
+
+    var apigClient = apigClientFactory.newClient({
+        apiKey: 'YrdZOeHq6S5ctYc2vfSUK833Q69YOi855kHDy9g4'
+    });*/
+    var apigClient = apigClientFactory.newClient();
+
+    function uploadFile() {
+        var files =  document.getElementById('file').files;
+        if (files.length == 0) {
+            alert('Please select a file!');
+            return false;
+        }
+        // var file = files[0];
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        async function calculate() {
+            const file = document.querySelector('#file').files[0];
+            var str = await toBase64(file);
+            str = str.substring(23);
+            console.log(str);
+            // console.log(str.length);
+            // console.log(str);
+            console.log(file.name);
+            var additionalParams = {
+                //headers: {
+                    //'name': file.name
+                    //'Content-Type': 'image/jpg'
+                //}
+            }
+            apigClient.uploadPut({}, str, additionalParams).then(function(result) {
+                console.log(result);
+            });
+            $('#file').val(null);
+            // sendFile(file)
+        }
+
+        calculate();
+        return false;
+
+    }
+
+    function submitSearch() {
+        var text = $("#search").val();
+        if (text === "") {
+            alert("Please input the keyword!");
+            return false;
+        }
+        var params = {
+            'q': text
+        };
+        apigClient.searchGet(params, {}, {}).then(function(result) {
+            console.log(result);
+            var images = result.data.body;
+            var uniqueImages = [];
+            $.each(images, function(i, el){
+                if($.inArray(el, uniqueImages) === -1) uniqueImages.push(el);
+            });
+            document.getElementById("image").innerHTML = "";
+            if (uniqueImages.length == 0) {
+                document.getElementById("image").innerHTML = "<h4>no such images</h4>";
+            }else {
+                uniqueImages.forEach(function (link) {
+                    var elem = document.createElement("img");
+                    elem.src = link;
+                    elem.width = 200;
+                    elem.height = 150;
+                    document.getElementById("image").appendChild(elem);
+                });
+            }
+
+        })
+    }
+
+    var state = "stop";
+    // navigator.mediaDevices.getUserMedia({audio:true})
+    //     .then(stream => {handlerFunction(stream)});
+    // function handlerFunction(stream) {
+    //     // const mime = ['audio/wav', 'audio/mp3', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/flac']
+    //     //     .filter(MediaRecorder.isTypeSupported);
+    //     // console.log(mime);
+    //     // var options = {
+    //     //     mimeType: "audio/wav"
+    //     // };
+    //     rec = new MediaRecorder(stream);
+    //     rec.ondataavailable = e => {
+    //         audioChunks.push(e.data);
+    //         if (rec.state == "inactive"){
+    //             let blob = new Blob(audioChunks,{type:'audio/mp4'});
+    //             console.log(blob);
+    //             let src = URL.createObjectURL(blob);
+    //             console.log(src);
+    //             var fileReader = new FileReader();
+    //             fileReader.readAsArrayBuffer(blob);
+    //             // recordedAudio.src = src;
+    //             // recordedAudio.controls=true;
+    //             // recordedAudio.autoplay=true;
+    //             sendData(src);
+    //         }
+    //     }
+    // }
+    var audioBucketName = "audio-temporary";//@@@
+    var bucketRegion = "us-east-1";
+    // AWS.config.update({
+    //     region: bucketRegion,
+    //     accessKeyId: "AKIA4BZV5KPTK3QNGP7T",
+    //     secretAccessKey: "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"
+    // });
+
+    $('#record').click(function () {
+        if (state === "stop") {
+            console.log("start recording!");
+            state = "start";
+            $('#record').css('background-color', 'blue');
+            // audioChunks = [];
+            // rec.start();
+            recognition.start();
+        } else {
+            console.log("stop recording!");
+            state = "stop";
+            $('#record').css('background-color', 'red');
+            // rec.stop();
+            recognition.stop();
+        }
+    });
+
+    function sendData(data) {
+        var upload = new AWS.S3.ManagedUpload({
+            params: {
+                Bucket: audioBucketName,
+                Body: data,
+                Key: "audio.mp4"
+            }
+        });
+        var promise = upload.promise();
+
+        promise.then(
+            function(result) {
+                console.log("Successfully uploaded audio.");
+            },
+            function(err) {
+                console.log(err);
+            }
+        );
+    }
+
+    function sendFile(file) {
+
+
+
+        var upload = new AWS.S3.ManagedUpload({
+            params: {
+                Bucket: "b2-photo-v1",//@@@
+                Key: file.name,
+                Body: file,
+            }
+        });
+
+        var promise = upload.promise();
+
+        promise.then(
+            function(data) {
+                console.log("Successfully uploaded photo.");
+            },
+            function(err) {
+                console.log("There was an error uploading your photo: ", err.message);
+            }
+        );
+    }
+</script>
+</body>
+</html>
